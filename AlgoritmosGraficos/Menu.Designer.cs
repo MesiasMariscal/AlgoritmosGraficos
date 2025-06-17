@@ -43,7 +43,6 @@
             this.drawingGroupBox = new System.Windows.Forms.GroupBox();
             this.picCanvas = new System.Windows.Forms.PictureBox();
             this.controlsGroupBox = new System.Windows.Forms.GroupBox();
-            this.button1 = new System.Windows.Forms.Button();
             this.btnPause = new System.Windows.Forms.Button();
             this.btnStart = new System.Windows.Forms.Button();
             this.speedValueLabel = new System.Windows.Forms.Label();
@@ -220,7 +219,6 @@
             // 
             // controlsGroupBox
             // 
-            this.controlsGroupBox.Controls.Add(this.button1);
             this.controlsGroupBox.Controls.Add(this.btnPause);
             this.controlsGroupBox.Controls.Add(this.btnStart);
             this.controlsGroupBox.Controls.Add(this.speedValueLabel);
@@ -235,20 +233,6 @@
             this.controlsGroupBox.TabIndex = 0;
             this.controlsGroupBox.TabStop = false;
             this.controlsGroupBox.Text = "🔧 Controles";
-            // 
-            // button1
-            // 
-            this.button1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(120)))), ((int)(((byte)(212)))));
-            this.button1.Enabled = false;
-            this.button1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.button1.ForeColor = System.Drawing.Color.White;
-            this.button1.Location = new System.Drawing.Point(680, 45);
-            this.button1.Name = "button1";
-            this.button1.Size = new System.Drawing.Size(100, 30);
-            this.button1.TabIndex = 8;
-            this.button1.Text = "🗑️ Limpiar";
-            this.button1.UseVisualStyleBackColor = false;
-            this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
             // btnPause
             // 
@@ -410,7 +394,6 @@
         private System.Windows.Forms.Button btnStart;
         private System.Windows.Forms.Button btnPause;
         private System.Windows.Forms.GroupBox drawingGroupBox;
-        private System.Windows.Forms.Button button1;
         private System.Windows.Forms.ProgressBar ProgressBar;
         private System.Windows.Forms.GroupBox statusGroupBox;
         private System.Windows.Forms.Label lblVertices;
