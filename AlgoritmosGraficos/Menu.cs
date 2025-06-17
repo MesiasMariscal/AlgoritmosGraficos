@@ -209,10 +209,10 @@ namespace AlgoritmosGraficos
             btnGraficarCirculo.Click += BtnGraficarCirculo_Click;
             tabPage.Controls.Add(btnGraficarCirculo);
 
-            // Instrucciones simples
+            // Instrucciones actualizadas - sin mencionar clics
             Label lblInstructions = new Label
             {
-                Text = "Ingrese el radio y presione 'Graficar' para dibujar en el centro",
+                Text = "Ingrese el radio y presione 'Graficar' para dibujar en el centro del canvas",
                 Location = new Point(10, 55),
                 Size = new Size(400, 20),
                 AutoSize = true,
@@ -400,9 +400,7 @@ namespace AlgoritmosGraficos
                     optionsTabControl.SelectedIndex = 1; // Mostrar pestaña de círculo
                     btnStart.Enabled = true;
                     ActualizarInstrucciones("Círculo");
-                    // Resetear estado de círculo
-                    primerPuntoCirculo = true;
-                    ActualizarInstruccionesCirculo("Haga clic para el centro del círculo");
+                    // No resetear estado de círculo ya que no se usan clics
                     break;
 
                 case 4: // Relleno por Inundación
@@ -452,15 +450,15 @@ namespace AlgoritmosGraficos
 
                 case "Círculo":
                     instructionLabel.Text = "Algoritmo de circunferencia:\n" +
-                                           "1. Introduzca el centro y el radio\n" +
-                                           "2. O use clics para definir posición y tamaño\n" +
-                                           "3. Presione 'Animar' para ver el proceso";
+                                           "1. Introduzca el radio deseado\n" +
+                                           "2. Presione 'Graficar' para dibujar en el centro\n" +
+                                           "3. Use 'Animar' para ver el proceso paso a paso";
                     break;
 
                 case "Relleno":
                     instructionLabel.Text = "Algoritmo de relleno:\n" +
                                            "1. Seleccione un color\n" +
-                                           "2. Defina el punto semilla\n" +
+                                           "2. Haga clic dentro del rombo para definir punto semilla\n" +
                                            "3. Presione 'Animar' para ver el proceso";
                     break;
 
@@ -488,6 +486,7 @@ namespace AlgoritmosGraficos
             if (algorithmComboBox.SelectedIndex <= 0)
                 return;
 
+            // Si ya hay una animación en curso y el botón dice "Continuar"
             if (isAnimating && btnStart.Text == "Continuar")
             {
                 // Continuar animación pausada
@@ -498,12 +497,77 @@ namespace AlgoritmosGraficos
                 return;
             }
 
-            // Deshabilitar botón de inicio y habilitar pausa
-            btnStart.Enabled = false;
-            btnPause.Enabled = true;
+            // Si es relleno por inundación, usar animación
+            if (algorithmComboBox.SelectedIndex == 4) // Relleno por Inundación
+            {
+                // Verificar que tenemos coordenadas válidas
+                try
+                {
+                    int seedX = int.Parse(txtSeedX.Text);
+                    int seedY = int.Parse(txtSeedY.Text);
 
-            // Ejecutar el algoritmo seleccionado usando los parámetros de la pestaña actual
-            EjecutarAlgoritmoSeleccionado();
+                    // Verificar que el punto está dentro de los límites del canvas
+                    if (seedX < 0 || seedX >= picCanvas.Width || seedY < 0 || seedY >= picCanvas.Height)
+                    {
+                        MessageBox.Show("El punto semilla está fuera del área de dibujo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    // Si no hay rombo dibujado, dibujarlo primero
+                    if (romboActual == null)
+                    {
+                        DibujarRomboPorDefecto();
+                    }
+
+                    // Verificar que el punto está dentro del rombo
+                    if (!romboActual.ContieneElPunto(seedX, seedY))
+                    {
+                        MessageBox.Show("El punto semilla debe estar dentro del rombo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    // Guardar imagen original para la animación
+                    originalImage = new Bitmap((Bitmap)picCanvas.Image);
+                    
+                    // Preparar y comenzar animación
+                    PrepararAnimacionRelleno(seedX, seedY, selectedFillColor);
+                    
+                    if (pixelsToFill != null && pixelsToFill.Count > 0)
+                    {
+                        IniciarAnimacionRelleno();
+                    }
+                }
+                catch (FormatException)
+                {
+                    MessageBox.Show("Por favor, ingrese valores numéricos válidos para las coordenadas.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al preparar el relleno: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else if (algorithmComboBox.SelectedIndex == 3) // Bresenham - Círculo
+            {
+                // Para círculos, mostrar mensaje para usar el botón Graficar
+                MessageBox.Show("Para dibujar círculos, use el botón 'Graficar' en las opciones.\n" +
+                               "El botón 'Animar' está reservado para algoritmos con animación paso a paso.", 
+                               "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // Reactivar controles
+                btnStart.Enabled = true;
+                btnPause.Enabled = false;
+            }
+            else
+            {
+                // Para otros algoritmos (líneas), ejecutar normalmente
+                btnStart.Enabled = false;
+                btnPause.Enabled = true;
+                EjecutarAlgoritmoSeleccionado();
+                
+                // Reactivar controles después de la ejecución
+                btnStart.Enabled = true;
+                btnPause.Enabled = false;
+            }
         }
 
         private void EjecutarAlgoritmoSeleccionado()
@@ -682,38 +746,9 @@ namespace AlgoritmosGraficos
 
         private void ManejarClickCirculo(Point clickPoint)
         {
-            if (primerPuntoCirculo)
-            {
-                // Primer clic: establecer centro
-                centroCirculo = clickPoint;
-                txtCenterX.Text = clickPoint.X.ToString();
-                txtCenterY.Text = (picCanvas.Height - clickPoint.Y).ToString(); // Invertir Y
-
-                // Dibujar centro
-                DibujarPuntoTemporal(clickPoint, Color.Green);
-
-                primerPuntoCirculo = false;
-                ActualizarInstruccionesCirculo("Haga clic para definir el radio del círculo");
-            }
-            else
-            {
-                // Segundo clic: calcular radio y dibujar círculo
-                int deltaX = clickPoint.X - centroCirculo.X;
-                int deltaY = clickPoint.Y - centroCirculo.Y;
-                int radio = (int)Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
-
-                txtRadius.Text = radio.ToString();
-
-                // Dibujar punto de radio
-                DibujarPuntoTemporal(clickPoint, Color.Orange);
-
-                // Ejecutar algoritmo automáticamente
-                EjecutarAlgoritmoCirculo();
-
-                // Resetear para próximo círculo
-                primerPuntoCirculo = true;
-                ActualizarInstruccionesCirculo("Haga clic para el centro del círculo");
-            }
+            // Para círculos, no manejar clics ya que existe el botón "Graficar"
+            MessageBox.Show("Para dibujar círculos, use el botón 'Graficar' en las opciones.", 
+                            "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ManejarClickRelleno(Point clickPoint)
@@ -1022,8 +1057,6 @@ namespace AlgoritmosGraficos
             txtSeedX.Text = centerX.ToString();
             txtSeedY.Text = centerY.ToString();
         }
-
-// ...existing code...
 
 private void PrepararAnimacionRelleno(int seedX, int seedY, Color fillColor)
 {
