@@ -39,6 +39,12 @@ namespace AlgoritmosGraficos
         private int animationSpeed = 50; // milisegundos entre píxeles
         private int pixelsFilledCount = 0;
 
+        // Variables para animación de líneas y círculos
+        private Queue<Point> pixelsToAnimate;
+        private int pixelsAnimatedCount = 0;
+        private string currentAlgorithm = "";
+
+
         public Menu()
         {
             InitializeComponent();
@@ -198,21 +204,10 @@ namespace AlgoritmosGraficos
             };
             tabPage.Controls.Add(txtRadius);
 
-            // Botón para graficar el círculo
-            Button btnGraficarCirculo = new Button
-            {
-                Text = "Graficar",
-                Location = new Point(140, 20),
-                Size = new Size(80, 25),
-                Name = "btnGraficarCirculo"
-            };
-            btnGraficarCirculo.Click += BtnGraficarCirculo_Click;
-            tabPage.Controls.Add(btnGraficarCirculo);
-
-            // Instrucciones actualizadas - sin mencionar clics
+            // Instrucciones actualizadas
             Label lblInstructions = new Label
             {
-                Text = "Ingrese el radio y presione 'Graficar' para dibujar en el centro del canvas",
+                Text = "Ingrese el radio y presione 'Animar' para ver el proceso paso a paso",
                 Location = new Point(10, 55),
                 Size = new Size(400, 20),
                 AutoSize = true,
@@ -221,46 +216,6 @@ namespace AlgoritmosGraficos
                 Name = "lblInstructions"
             };
             tabPage.Controls.Add(lblInstructions);
-        }
-
-        private void BtnGraficarCirculo_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                // Limpiar el canvas antes de dibujar el nuevo círculo
-                if (picCanvas.Image != null)
-                {
-                    using (Graphics g = Graphics.FromImage(picCanvas.Image))
-                    {
-                        g.Clear(Color.White);
-                    }
-                }
-
-                // Calcular el centro automáticamente (mitad del canvas)
-                int centerX = picCanvas.Width / 2;
-                int centerY = picCanvas.Height / 2;
-                int radius = int.Parse(txtRadius.Text);
-
-                // Actualizar los valores en los TextBox (aunque no se muestren)
-                if (txtCenterX != null) txtCenterX.Text = centerX.ToString();
-                if (txtCenterY != null) txtCenterY.Text = centerY.ToString();
-
-                // Dibujar centro
-                DibujarPuntoTemporal(new Point(centerX, centerY), Color.Green);
-
-                // Ejecutar algoritmo para dibujar círculo
-                EjecutarAlgoritmoCirculo();
-            }
-            catch (FormatException)
-            {
-                MessageBox.Show("Por favor, ingrese un valor numérico válido para el radio.",
-                                "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al graficar círculo: {ex.Message}",
-                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
         }
 
         private void ConfigurarTabPageRelleno()
@@ -497,161 +452,381 @@ namespace AlgoritmosGraficos
                 return;
             }
 
-            // Si es relleno por inundación, usar animación
-            if (algorithmComboBox.SelectedIndex == 4) // Relleno por Inundación
+            // Determinar qué algoritmo ejecutar con animación
+            switch (algorithmComboBox.SelectedIndex)
             {
-                // Verificar que tenemos coordenadas válidas
-                try
-                {
-                    int seedX = int.Parse(txtSeedX.Text);
-                    int seedY = int.Parse(txtSeedY.Text);
-
-                    // Verificar que el punto está dentro de los límites del canvas
-                    if (seedX < 0 || seedX >= picCanvas.Width || seedY < 0 || seedY >= picCanvas.Height)
-                    {
-                        MessageBox.Show("El punto semilla está fuera del área de dibujo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-
-                    // Si no hay rombo dibujado, dibujarlo primero
-                    if (romboActual == null)
-                    {
-                        DibujarRomboPorDefecto();
-                    }
-
-                    // Verificar que el punto está dentro del rombo
-                    if (!romboActual.ContieneElPunto(seedX, seedY))
-                    {
-                        MessageBox.Show("El punto semilla debe estar dentro del rombo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        return;
-                    }
-
-                    // Guardar imagen original para la animación
-                    originalImage = new Bitmap((Bitmap)picCanvas.Image);
+                case 1: // DDA - Línea
+                    PrepararAnimacionLinea("DDA");
+                    break;
                     
-                    // Preparar y comenzar animación
-                    PrepararAnimacionRelleno(seedX, seedY, selectedFillColor);
+                case 2: // Bresenham - Línea
+                    PrepararAnimacionLinea("Bresenham");
+                    break;
                     
-                    if (pixelsToFill != null && pixelsToFill.Count > 0)
+                case 3: // Bresenham - Círculo
+                    PrepararAnimacionCirculo();
+                    break;
+                    
+                case 4: // Relleno por Inundación
+                    // Verificar que tenemos coordenadas válidas
+                    try
                     {
-                        IniciarAnimacionRelleno();
-                    }
-                }
-                catch (FormatException)
-                {
-                    MessageBox.Show("Por favor, ingrese valores numéricos válidos para las coordenadas.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error al preparar el relleno: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            else if (algorithmComboBox.SelectedIndex == 3) // Bresenham - Círculo
-            {
-                // Para círculos, mostrar mensaje para usar el botón Graficar
-                MessageBox.Show("Para dibujar círculos, use el botón 'Graficar' en las opciones.\n" +
-                               "El botón 'Animar' está reservado para algoritmos con animación paso a paso.", 
-                               "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                // Reactivar controles
-                btnStart.Enabled = true;
-                btnPause.Enabled = false;
-            }
-            else
-            {
-                // Para otros algoritmos (líneas), ejecutar normalmente
-                btnStart.Enabled = false;
-                btnPause.Enabled = true;
-                EjecutarAlgoritmoSeleccionado();
-                
-                // Reactivar controles después de la ejecución
-                btnStart.Enabled = true;
-                btnPause.Enabled = false;
-            }
-        }
-
-        private void EjecutarAlgoritmoSeleccionado()
-        {
-            try
-            {
-                switch (algorithmComboBox.SelectedIndex)
-                {
-                    case 1: // DDA - Línea
-                        int x1 = int.Parse(txtStartX.Text);
-                        int y1 = int.Parse(txtStartY.Text);
-                        int x2 = int.Parse(txtEndX.Text);
-                        int y2 = int.Parse(txtEndY.Text);
-
-                        EjecutarAlgoritmoLinea();
-                        break;
-
-                    case 2: // Bresenham - Línea
-                        x1 = int.Parse(txtStartX.Text);
-                        y1 = int.Parse(txtStartY.Text);
-                        x2 = int.Parse(txtEndX.Text);
-                        y2 = int.Parse(txtEndY.Text);
-
-                        EjecutarAlgoritmoLinea();
-                        break;
-
-                    case 3: // Bresenham - Círculo
-                        int centerX = int.Parse(txtCenterX.Text);
-                        int centerY = int.Parse(txtCenterY.Text);
-                        int radius = int.Parse(txtRadius.Text);
-
-                        EjecutarAlgoritmoCirculo();
-                        break;
-
-                    case 4: // Relleno por Inundación
                         int seedX = int.Parse(txtSeedX.Text);
                         int seedY = int.Parse(txtSeedY.Text);
 
-                        EjecutarAlgoritmoRelleno();
-                        break;
+                        // Verificar que el punto está dentro de los límites del canvas
+                        if (seedX < 0 || seedX >= picCanvas.Width || seedY < 0 || seedY >= picCanvas.Height)
+                        {
+                            MessageBox.Show("El punto semilla está fuera del área de dibujo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+
+                        // Si no hay rombo dibujado, dibujarlo primero
+                        if (romboActual == null)
+                        {
+                            DibujarRomboPorDefecto();
+                        }
+
+                        // Verificar que el punto está dentro del rombo
+                        if (!romboActual.ContieneElPunto(seedX, seedY))
+                        {
+                            MessageBox.Show("El punto semilla debe estar dentro del rombo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+
+                        // Guardar imagen original para la animación
+                        originalImage = new Bitmap((Bitmap)picCanvas.Image);
+                        
+                        // Preparar y comenzar animación
+                        PrepararAnimacionRelleno(seedX, seedY, selectedFillColor);
+                        
+                        if (pixelsToFill != null && pixelsToFill.Count > 0)
+                        {
+                            IniciarAnimacionRelleno();
+                        }
+                    }
+                    catch (FormatException)
+                    {
+                        MessageBox.Show("Por favor, ingrese valores numéricos válidos para las coordenadas.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error al preparar el relleno: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    break;
+            }
+        }
+
+        private void PrepararAnimacionLinea(string algoritmo)
+        {
+            try
+            {
+                int x1 = int.Parse(txtStartX.Text);
+                int y1 = int.Parse(txtStartY.Text);
+                int x2 = int.Parse(txtEndX.Text);
+                int y2 = int.Parse(txtEndY.Text);
+
+                // Limpiar canvas y guardar imagen original
+                if (picCanvas.Image != null)
+                {
+                    using (Graphics g = Graphics.FromImage(picCanvas.Image))
+                    {
+                        g.Clear(Color.White);
+                    }
                 }
+                originalImage = new Bitmap((Bitmap)picCanvas.Image);
+
+                // Dibujar puntos iniciales y finales
+                DibujarPuntoTemporal(new Point(x1, picCanvas.Height - y1), Color.Blue);
+                DibujarPuntoTemporal(new Point(x2, picCanvas.Height - y2), Color.Red);
+
+                // Obtener puntos según el algoritmo
+                pixelsToAnimate = new Queue<Point>();
+                
+                if (algoritmo == "DDA")
+                {
+                    var points = DDALine.GetDDAPoints(x1, y1, x2, y2);
+                    foreach (var point in points)
+                    {
+                        // Convertir explícitamente float a int
+                        pixelsToAnimate.Enqueue(new Point((int)Math.Round(point.X), picCanvas.Height - (int)Math.Round(point.Y)));
+                    }
+                    currentAlgorithm = "DDA";
+                }
+                else if (algoritmo == "Bresenham")
+                {
+                    var points = BresenhamLine.GetBresenhamPoints(x1, y1, x2, y2);
+                    foreach (var point in points)
+                    {
+                        // Convertir explícitamente a int
+                        pixelsToAnimate.Enqueue(new Point((int)point.X, picCanvas.Height - (int)point.Y));
+                    }
+                    currentAlgorithm = "Bresenham";
+                }
+
+                IniciarAnimacionGenerica("línea");
             }
             catch (FormatException)
             {
-                MessageBox.Show("Por favor, ingrese valores numéricos válidos en todos los campos de texto.",
-                                "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                btnStart.Enabled = true;
-                btnPause.Enabled = false;
+                MessageBox.Show("Por favor, ingrese valores numéricos válidos para las coordenadas.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error al ejecutar el algoritmo: {ex.Message}",
-                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                btnStart.Enabled = true;
-                btnPause.Enabled = false;
+                MessageBox.Show($"Error al preparar animación de línea: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            finally
+        }
+
+        private void PrepararAnimacionCirculo()
+        {
+            try
             {
-                // Reactivar el botón Start y desactivar Pause al final
-                btnStart.Enabled = true;
-                btnPause.Enabled = false;
+                // Calcular el centro automáticamente (mitad del canvas)
+                int centerX = picCanvas.Width / 2;
+                int centerY = picCanvas.Height / 2;
+                int radius = int.Parse(txtRadius.Text);
+
+                // Limpiar canvas y guardar imagen original
+                if (picCanvas.Image != null)
+                {
+                    using (Graphics g = Graphics.FromImage(picCanvas.Image))
+                    {
+                        g.Clear(Color.White);
+                    }
+                }
+                originalImage = new Bitmap((Bitmap)picCanvas.Image);
+
+                // Dibujar centro
+                DibujarPuntoTemporal(new Point(centerX, centerY), Color.Green);
+
+                // Obtener puntos del círculo
+                pixelsToAnimate = new Queue<Point>();
+                var points = BresenhamCircle.GetCirclePoints(centerX, centerY, radius);
+                
+                foreach (var point in points)
+                {
+                    pixelsToAnimate.Enqueue(new Point(point.X, point.Y));
+                }
+
+                currentAlgorithm = "Bresenham Círculo";
+                IniciarAnimacionGenerica("círculo");
             }
+            catch (FormatException)
+            {
+                MessageBox.Show("Por favor, ingrese un valor numérico válido para el radio.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error al preparar animación de círculo: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void IniciarAnimacionGenerica(string tipo)
+        {
+            if (pixelsToAnimate == null || pixelsToAnimate.Count == 0)
+            {
+                MessageBox.Show($"No hay píxeles para animar en el {tipo}.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            pixelsAnimatedCount = 0;
+
+            // Configurar velocidad según el trackbar
+            animationSpeed = Math.Max(1, 101 - (speedTrackBar.Value * 10));
+            animationTimer.Interval = animationSpeed;
+
+            // Deshabilitar controles durante la animación
+            isAnimating = true;
+            btnStart.Enabled = false;
+            btnPause.Enabled = true;
+            algorithmComboBox.Enabled = false;
+
+            // Inicializar barra de progreso
+            ProgressBar.Minimum = 0;
+            ProgressBar.Maximum = pixelsToAnimate.Count;
+            ProgressBar.Value = 0;
+
+            // Preparar lista de píxeles
+            pixelListBox.Items.Clear();
+            pixelListBox.Items.Add($"=== Animación de {currentAlgorithm} ===");
+            pixelListBox.Items.Add($"Total de píxeles a dibujar: {pixelsToAnimate.Count}");
+
+            // Actualizar estadísticas iniciales
+            lblPixels.Text = $"Píxeles: {pixelsToAnimate.Count}";
+            lblAnimated.Text = "Animados: 0";
+
+            // Iniciar timer
+            animationTimer.Start();
         }
 
         private void btnPause_Click(object sender, EventArgs e)
         {
-            // Pausar la animación del algoritmo
-            btnPause.Enabled = false;
-            btnStart.Enabled = true;
-
-            // Aquí iría el código para pausar la animación
+            if (isAnimating)
+            {
+                // Pausar la animación
+                animationTimer.Stop();
+                btnPause.Enabled = false;
+                btnStart.Enabled = true;
+                btnStart.Text = "Continuar";
+            }
         }
+
+        private void AnimationTimer_Tick(object sender, EventArgs e)
+        {
+            // Verificar si es animación de relleno
+            if (pixelsToFill != null && pixelsToFill.Count > 0)
+            {
+                AnimarRelleno();
+                return;
+            }
+
+            // Animación para líneas y círculos
+            if (pixelsToAnimate == null || pixelsToAnimate.Count == 0)
+            {
+                DetenerAnimacionGenerica();
+                return;
+            }
+
+            // Dibujar siguiente grupo de píxeles
+            int pixelsPerTick = Math.Max(1, (speedTrackBar.Value / 3)); // Velocidad más controlada
+            
+            for (int i = 0; i < pixelsPerTick && pixelsToAnimate.Count > 0; i++)
+            {
+                Point pixel = pixelsToAnimate.Dequeue();
+                
+                // Dibujar el pixel
+                ((Bitmap)picCanvas.Image).SetPixel(pixel.X, pixel.Y, Color.Black);
+                pixelsAnimatedCount++;
+                
+                // Actualizar información cada ciertos píxeles
+                if (pixelsAnimatedCount % 5 == 0 || pixelsToAnimate.Count == 0)
+                {
+                    // Actualizar lista de píxeles
+                    if (pixelListBox.Items.Count > 30) // Limitar items en la lista
+                    {
+                        pixelListBox.Items.RemoveAt(2); // Remover el más antiguo
+                    }
+                    pixelListBox.Items.Add($"Pixel {pixelsAnimatedCount}: ({pixel.X}, {pixel.Y})");
+                    
+                    // Actualizar estadísticas
+                    lblAnimated.Text = $"Animados: {pixelsAnimatedCount}";
+                    ProgressBar.Value = pixelsAnimatedCount;
+                    
+                    // Refrescar canvas
+                    picCanvas.Refresh();
+                    
+                    // Hacer scroll automático en la lista
+                    pixelListBox.TopIndex = Math.Max(0, pixelListBox.Items.Count - pixelListBox.Height / pixelListBox.ItemHeight);
+                }
+            }
+            
+            // Si no quedan más píxeles, detener animación
+            if (pixelsToAnimate.Count == 0)
+            {
+                DetenerAnimacionGenerica();
+            }
+        }
+
+        private void AnimarRelleno()
+        {
+            if (pixelsToFill == null || pixelsToFill.Count == 0)
+            {
+                DetenerAnimacion();
+                return;
+            }
+            
+            // Rellenar siguiente grupo de píxeles
+            int pixelsPerTick = Math.Max(1, (speedTrackBar.Value / 2));
+            
+            for (int i = 0; i < pixelsPerTick && pixelsToFill.Count > 0; i++)
+            {
+                Point pixel = pixelsToFill.Dequeue();
+                
+                // Colorear el pixel
+                ((Bitmap)picCanvas.Image).SetPixel(pixel.X, pixel.Y, targetFillColor);
+                pixelsFilledCount++;
+                
+                // Actualizar información cada ciertos píxeles
+                if (pixelsFilledCount % 10 == 0 || pixelsToFill.Count == 0)
+                {
+                    // Actualizar lista de píxeles
+                    if (pixelListBox.Items.Count > 50) // Limitar items en la lista
+                    {
+                        pixelListBox.Items.RemoveAt(2); // Remover el más antiguo
+                    }
+                    pixelListBox.Items.Add($"Pixel {pixelsFilledCount}: ({pixel.X}, {pixel.Y})");
+                    
+                    // Actualizar estadísticas
+                    lblAnimated.Text = $"Animados: {pixelsFilledCount}";
+                    ProgressBar.Value = pixelsFilledCount;
+                    
+                    // Refrescar canvas
+                    picCanvas.Refresh();
+                    
+                    // Hacer scroll automático en la lista
+                    pixelListBox.TopIndex = Math.Max(0, pixelListBox.Items.Count - pixelListBox.Height / pixelListBox.ItemHeight);
+                }
+            }
+            
+            // Si no quedan más píxeles, detener animación
+            if (pixelsToFill.Count == 0)
+            {
+                DetenerAnimacion();
+            }
+        }
+
+        private void DetenerAnimacionGenerica()
+        {
+            animationTimer.Stop();
+            isAnimating = false;
+            
+            // Reactivar controles
+            btnStart.Enabled = true;
+            btnPause.Enabled = false;
+            algorithmComboBox.Enabled = true;
+            btnStart.Text = "Animar";
+            
+            // Refrescar canvas final
+            picCanvas.Refresh();
+            
+            // Actualizar estadísticas finales
+            ProgressBar.Value = ProgressBar.Maximum;
+            
+            // Limpiar variables de animación
+            pixelsToAnimate = null;
+            
+            MessageBox.Show($"Animación de {currentAlgorithm} completada. Se dibujaron {pixelsAnimatedCount} píxeles.", 
+                            "Animación Finalizada", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // Agregar estos métodos faltantes:
 
         private void button1_Click(object sender, EventArgs e)
         {
-            // Botón Limpiar
+            // Detener animación si está en curso
+            if (isAnimating)
+            {
+                animationTimer.Stop();
+                isAnimating = false;
+                btnStart.Text = "Animar";
+                algorithmComboBox.Enabled = true;
+                btnPause.Enabled = false;
+            }
+
+            // Limpiar el canvas completamente y crear una nueva imagen
+            Bitmap newBitmap = new Bitmap(picCanvas.Width, picCanvas.Height);
+            using (Graphics g = Graphics.FromImage(newBitmap))
+            {
+                g.Clear(Color.White);
+            }
+            
+            // Liberar la imagen anterior si existe
             if (picCanvas.Image != null)
             {
-                using (Graphics g = Graphics.FromImage(picCanvas.Image))
-                {
-                    g.Clear(Color.White);
-                }
-                picCanvas.Refresh();
+                picCanvas.Image.Dispose();
             }
+            
+            // Asignar la nueva imagen limpia
+            picCanvas.Image = newBitmap;
 
             // Resetear controles y contadores
             btnStart.Enabled = algorithmComboBox.SelectedIndex > 0;
@@ -673,16 +848,44 @@ namespace AlgoritmosGraficos
             // Resetear estados de interacción
             primerPuntoLinea = true;
             primerPuntoCirculo = true;
+            romboActual = null; // Esto limpia el rombo
 
-            // Actualizar instrucciones según el algoritmo actual
-            if (algorithmComboBox.SelectedIndex == 1 || algorithmComboBox.SelectedIndex == 2)
+            // Limpiar variables de animación
+            pixelsToFill = null;
+            pixelsToAnimate = null;
+            pixelsFilledCount = 0;
+            pixelsAnimatedCount = 0;
+            
+            // Limpiar imagen original si existe
+            if (originalImage != null)
             {
-                ActualizarInstruccionesLinea("Haga clic para el punto inicial de la línea");
+                originalImage.Dispose();
+                originalImage = null;
             }
-            else if (algorithmComboBox.SelectedIndex == 3)
+
+            // Dependiendo del algoritmo seleccionado, reiniciar al estado apropiado
+            if (algorithmComboBox.SelectedIndex > 0)
             {
-                ActualizarInstruccionesCirculo("Haga clic para el centro del círculo");
+                switch (algorithmComboBox.SelectedIndex)
+                {
+                    case 1: // DDA - Línea
+                    case 2: // Bresenham - Línea
+                        ActualizarInstruccionesLinea("Haga clic para el punto inicial de la línea");
+                        break;
+
+                    case 3: // Bresenham - Círculo
+                        ActualizarInstruccionesCirculo("Ingrese el radio y presione 'Animar' para ver el proceso");
+                        break;
+
+                    case 4: // Relleno por Inundación
+                        // Solo dibujar un rombo NUEVO y LIMPIO, sin color de relleno
+                        DibujarRomboPorDefecto();
+                        break;
+                }
             }
+
+            // Refrescar el canvas para mostrar los cambios
+            picCanvas.Refresh();
         }
 
         // IMPLEMENTACIÓN DEL EVENTO CLICK EN EL CANVAS
@@ -728,46 +931,71 @@ namespace AlgoritmosGraficos
             }
             else
             {
-                // Segundo clic: establecer punto final y dibujar línea
+                // Segundo clic: establecer punto final
                 txtEndX.Text = clickPoint.X.ToString();
                 txtEndY.Text = (picCanvas.Height - clickPoint.Y).ToString(); // Invertir Y
 
                 // Dibujar punto final
                 DibujarPuntoTemporal(clickPoint, Color.Red);
 
-                // Ejecutar algoritmo automáticamente
-                EjecutarAlgoritmoLinea();
-
                 // Resetear para próxima línea
                 primerPuntoLinea = true;
-                ActualizarInstruccionesLinea("Haga clic para el punto inicial de la línea");
+                ActualizarInstruccionesLinea("Puntos establecidos. Use 'Animar' para ver el proceso");
             }
         }
 
         private void ManejarClickCirculo(Point clickPoint)
         {
-            // Para círculos, no manejar clics ya que existe el botón "Graficar"
-            MessageBox.Show("Para dibujar círculos, use el botón 'Graficar' en las opciones.", 
+            // Para círculos, el centro se establece automáticamente en el centro del canvas
+            MessageBox.Show("El círculo se dibuja automáticamente en el centro del canvas.\n" +
+                           "Use 'Animar' para ver el proceso paso a paso", 
                             "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ManejarClickRelleno(Point clickPoint)
         {
-            // Verificar si el clic está dentro del rombo
-            if (romboActual != null && romboActual.ContieneElPunto(clickPoint.X, clickPoint.Y))
+            // Si no hay rombo, dibujarlo primero
+            if (romboActual == null)
             {
-                // Actualizar las coordenadas del punto semilla
+                DibujarRomboPorDefecto();
+            }
+
+            // Verificar si el clic está dentro del rombo
+            if (romboActual.ContieneElPunto(clickPoint.X, clickPoint.Y))
+            {
+                // Guardar las coordenadas del clic silenciosamente, sin mostrar el punto semilla
                 txtSeedX.Text = clickPoint.X.ToString();
                 txtSeedY.Text = clickPoint.Y.ToString();
 
-                // Ejecutar el relleno
-                EjecutarAlgoritmoRelleno();
+                try
+                {
+                    // Comenzar la animación directamente
+                    if (!isAnimating)
+                    {
+                        // Guardar imagen original para la animación
+                        originalImage = new Bitmap((Bitmap)picCanvas.Image);
+
+                        // Preparar y comenzar animación inmediatamente
+                        PrepararAnimacionRelleno(clickPoint.X, clickPoint.Y, selectedFillColor);
+
+                        if (pixelsToFill != null && pixelsToFill.Count > 0)
+                        {
+                            IniciarAnimacionRelleno();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error al iniciar el relleno: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
-                MessageBox.Show("Haga clic dentro del rombo para rellenarlo.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Haga clic dentro del rombo para rellenarlo.",
+                               "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
+
 
         private void DibujarPuntoTemporal(Point punto, Color color)
         {
@@ -789,199 +1017,6 @@ namespace AlgoritmosGraficos
                 }
             }
             picCanvas.Refresh();
-        }
-
-        private void EjecutarAlgoritmoLinea()
-        {
-            try
-            {
-                int x1 = int.Parse(txtStartX.Text);
-                int y1 = int.Parse(txtStartY.Text);
-                int x2 = int.Parse(txtEndX.Text);
-                int y2 = int.Parse(txtEndY.Text);
-
-                using (Graphics g = Graphics.FromImage(picCanvas.Image))
-                {
-                    if (algorithmComboBox.SelectedIndex == 1) // DDA
-                    {
-                        // Llamar a DrawDDA con los puntos recopilados
-                        DDALine.DrawDDA(g, x1, y1, x2, y2, Color.Black, picCanvas.Height);
-
-                        // Obtener puntos para mostrar en la lista
-                        var points = DDALine.GetDDAPoints(x1, y1, x2, y2);
-                        MostrarPuntosEnLista(points, "DDA");
-                    }
-                    else if (algorithmComboBox.SelectedIndex == 2) // Bresenham
-                    {
-                        // Usar la clase BresenhamLine en lugar de DDALine.DrawBresenham
-                        BresenhamLine.DrawBresenham(g, x1, y1, x2, y2, Color.Black, picCanvas.Height);
-
-                        // Obtener y mostrar los puntos de Bresenham
-                        var bresenhamPoints = BresenhamLine.GetBresenhamPoints(x1, y1, x2, y2);
-                        MostrarPuntosBresenhamEnLista(bresenhamPoints, "Bresenham");
-                    }
-                }
-                picCanvas.Refresh();
-
-                // Actualizar estadísticas
-                ActualizarEstadisticas("línea");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al dibujar línea: {ex.Message}");
-            }
-        }
-
-        // Método para mostrar los puntos de Bresenham en la lista
-        private void MostrarPuntosBresenhamEnLista(List<BresenhamLine.Point> points, string algoritmo)
-        {
-            pixelListBox.Items.Clear();
-            pixelListBox.Items.Add($"=== Puntos del algoritmo {algoritmo} ===");
-
-            if (points != null)
-            {
-                for (int i = 0; i < points.Count; i++)
-                {
-                    pixelListBox.Items.Add($"Punto {i + 1}: ({points[i].X}, {points[i].Y})");
-                }
-
-                lblPixels.Text = $"Píxeles: {points.Count}";
-            }
-            else
-            {
-                pixelListBox.Items.Add("Puntos generados por el algoritmo");
-                lblPixels.Text = "Píxeles: Calculando...";
-            }
-        }
-
-        private void EjecutarAlgoritmoCirculo()
-        {
-            try
-            {
-                // Para círculos, usar el centro del canvas si no hay valores específicos
-                int centerX, centerY;
-                
-                if (txtCenterX != null && !string.IsNullOrEmpty(txtCenterX.Text))
-                {
-                    centerX = int.Parse(txtCenterX.Text);
-                }
-                else
-                {
-                    centerX = picCanvas.Width / 2;
-                }
-                
-                if (txtCenterY != null && !string.IsNullOrEmpty(txtCenterY.Text))
-                {
-                    centerY = int.Parse(txtCenterY.Text);
-                }
-                else
-                {
-                    centerY = picCanvas.Height / 2;
-                }
-                
-                int radius = int.Parse(txtRadius.Text);
-
-                using (Graphics g = Graphics.FromImage(picCanvas.Image))
-                {
-                    // Llamar al algoritmo de círculo de Bresenham
-                    BresenhamCircle.DrawCircle(g, centerX, centerY, radius, Color.Black, picCanvas.Height);
-
-                    // Obtener los puntos para mostrar en la lista
-                    var points = BresenhamCircle.GetCirclePoints(centerX, centerY, radius);
-                    MostrarPuntosCirculoEnLista(points);
-                }
-
-                picCanvas.Refresh();
-                ActualizarEstadisticas("círculo");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al dibujar círculo: {ex.Message}");
-            }
-        }
-
-
-        // Método para mostrar puntos del círculo en la lista
-        private void MostrarPuntosCirculoEnLista(List<BresenhamCircle.Point> points)
-        {
-            pixelListBox.Items.Clear();
-            pixelListBox.Items.Add("=== Puntos del algoritmo Bresenham para Círculos ===");
-
-            if (points != null)
-            {
-                for (int i = 0; i < points.Count; i++)
-                {
-                    pixelListBox.Items.Add($"Punto {i + 1}: ({points[i].X}, {points[i].Y})");
-                }
-
-                lblPixels.Text = $"Píxeles: {points.Count}";
-            }
-            else
-            {
-                pixelListBox.Items.Add("Puntos generados por el algoritmo");
-                lblPixels.Text = "Píxeles: Calculando...";
-            }
-        }
-
-
-        private void EjecutarAlgoritmoRelleno()
-        {
-            try
-            {
-                int seedX = int.Parse(txtSeedX.Text);
-                int seedY = int.Parse(txtSeedY.Text);
-
-                // Verificar que el punto está dentro de los límites del canvas
-                if (seedX < 0 || seedX >= picCanvas.Width || seedY < 0 || seedY >= picCanvas.Height)
-                {
-                    MessageBox.Show("El punto semilla está fuera del área de dibujo.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Si no hay rombo dibujado, dibujarlo primero
-                if (romboActual == null)
-                {
-                    DibujarRomboPorDefecto();
-                }
-
-                // Guardar imagen original para la animación
-                originalImage = new Bitmap((Bitmap)picCanvas.Image);
-                
-                // Preparar animación
-                PrepararAnimacionRelleno(seedX, seedY, selectedFillColor);
-                
-                // Iniciar animación
-                IniciarAnimacionRelleno();
-            }
-            catch (FormatException)
-            {
-                MessageBox.Show("Por favor, ingrese valores numéricos válidos para las coordenadas.", "Error de formato", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error al rellenar: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-        private void MostrarPuntosEnLista(List<DDALine.Point> points, string algoritmo)
-        {
-            pixelListBox.Items.Clear();
-            pixelListBox.Items.Add($"=== Puntos del algoritmo {algoritmo} ===");
-
-            if (points != null)
-            {
-                for (int i = 0; i < points.Count; i++)
-                {
-                    pixelListBox.Items.Add($"Punto {i + 1}: ({points[i].X}, {points[i].Y})");
-                }
-
-                lblPixels.Text = $"Píxeles: {points.Count}";
-            }
-            else
-            {
-                pixelListBox.Items.Add("Puntos generados por el algoritmo");
-                lblPixels.Text = "Píxeles: Calculando...";
-            }
         }
 
         private void ActualizarInstruccionesLinea(string mensaje)
@@ -1029,6 +1064,7 @@ namespace AlgoritmosGraficos
 
             ProgressBar.Value = 100; // Marcar como completado
         }
+
         private void DibujarRomboPorDefecto()
         {
             if (picCanvas.Image == null)
@@ -1043,7 +1079,7 @@ namespace AlgoritmosGraficos
             // Calcular puntos del rombo centrado en el canvas
             int centerX = picCanvas.Width / 2;
             int centerY = picCanvas.Height / 2;
-            int size = 100; // Reducir un poco el tamaño para mejor detección
+            int size = 100;
 
             // Crear la instancia del rombo
             romboActual = new Rombo(centerX, centerY, size);
@@ -1058,157 +1094,132 @@ namespace AlgoritmosGraficos
             txtSeedY.Text = centerY.ToString();
         }
 
-private void PrepararAnimacionRelleno(int seedX, int seedY, Color fillColor)
-{
-    pixelsToFill = new Queue<Point>();
-    targetFillColor = fillColor;
-    pixelsFilledCount = 0;
-    
-    // Obtener el color original del pixel semilla
-    Bitmap bitmap = (Bitmap)picCanvas.Image;
-    Color originalColor = bitmap.GetPixel(seedX, seedY);
-    
-    // Si el color ya es el mismo que queremos, no hacer nada
-    if (originalColor.ToArgb() == fillColor.ToArgb())
-    {
-        MessageBox.Show("El área ya tiene el color seleccionado.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        return;
-    }
-    
-    // Implementar flood fill para obtener todos los píxeles a rellenar
-    HashSet<Point> visitados = new HashSet<Point>();
-    Stack<Point> stack = new Stack<Point>();
-    stack.Push(new Point(seedX, seedY));
-    
-    while (stack.Count > 0)
-    {
-        Point current = stack.Pop();
-        
-        if (current.X < 0 || current.X >= bitmap.Width || 
-            current.Y < 0 || current.Y >= bitmap.Height)
-            continue;
-            
-        if (visitados.Contains(current))
-            continue;
-            
-        Color currentColor = bitmap.GetPixel(current.X, current.Y);
-        if (currentColor.ToArgb() != originalColor.ToArgb())
-            continue;
-            
-        visitados.Add(current);
-        pixelsToFill.Enqueue(current);
-        
-        // Agregar píxeles vecinos
-        stack.Push(new Point(current.X + 1, current.Y));
-        stack.Push(new Point(current.X - 1, current.Y));
-        stack.Push(new Point(current.X, current.Y + 1));
-        stack.Push(new Point(current.X, current.Y - 1));
-    }
-    
-    // Actualizar información
-    lblPixels.Text = $"Píxeles: {pixelsToFill.Count}";
-    pixelListBox.Items.Clear();
-    pixelListBox.Items.Add($"=== Animación de Relleno ===");
-    pixelListBox.Items.Add($"Total de píxeles a rellenar: {pixelsToFill.Count}");
-}
-
-private void IniciarAnimacionRelleno()
-{
-    if (pixelsToFill == null || pixelsToFill.Count == 0)
-    {
-        MessageBox.Show("No hay píxeles para rellenar.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        return;
-    }
-    
-    // Configurar velocidad según el trackbar
-    animationSpeed = Math.Max(1, 101 - (speedTrackBar.Value * 10));
-    animationTimer.Interval = animationSpeed;
-    
-    // Deshabilitar controles durante la animación
-    isAnimating = true;
-    btnStart.Enabled = false;
-    btnPause.Enabled = true;
-    algorithmComboBox.Enabled = false;
-    
-    // Inicializar barra de progreso
-    ProgressBar.Minimum = 0;
-    ProgressBar.Maximum = pixelsToFill.Count;
-    ProgressBar.Value = 0;
-    
-    // Iniciar timer
-    animationTimer.Start();
-}
-
-private void AnimationTimer_Tick(object sender, EventArgs e)
-{
-    if (pixelsToFill == null || pixelsToFill.Count == 0)
-    {
-        DetenerAnimacion();
-        return;
-    }
-    
-    // Rellenar siguiente grupo de píxeles (rellenar varios a la vez para velocidades altas)
-    int pixelsPerTick = Math.Max(1, (speedTrackBar.Value / 2));
-    
-    for (int i = 0; i < pixelsPerTick && pixelsToFill.Count > 0; i++)
-    {
-        Point pixel = pixelsToFill.Dequeue();
-        
-        // Colorear el pixel
-        ((Bitmap)picCanvas.Image).SetPixel(pixel.X, pixel.Y, targetFillColor);
-        pixelsFilledCount++;
-        
-        // Actualizar información cada ciertos píxeles para no sobrecargar
-        if (pixelsFilledCount % 10 == 0 || pixelsToFill.Count == 0)
+        private void PrepararAnimacionRelleno(int seedX, int seedY, Color fillColor)
         {
-            // Actualizar lista de píxeles
-            if (pixelListBox.Items.Count > 50) // Limitar items en la lista
+            pixelsToFill = new Queue<Point>();
+            targetFillColor = fillColor;
+            pixelsFilledCount = 0;
+
+            // Obtener el color original del pixel semilla
+            Bitmap bitmap = (Bitmap)picCanvas.Image;
+            Color originalColor = bitmap.GetPixel(seedX, seedY);
+
+            // Si el color ya es el mismo que queremos, no hacer nada silenciosamente
+            if (originalColor.ToArgb() == fillColor.ToArgb())
             {
-                pixelListBox.Items.RemoveAt(2); // Remover el más antiguo (después del header)
+                return;
             }
-            pixelListBox.Items.Add($"Pixel {pixelsFilledCount}: ({pixel.X}, {pixel.Y})");
+
+            // Verificar que el punto semilla esté dentro del rombo y sea blanco
+            if (originalColor.ToArgb() != Color.White.ToArgb())
+            {
+                return;
+            }
+
+            // Implementar flood fill usando colores exactos
+            HashSet<Point> visitados = new HashSet<Point>();
+            Stack<Point> stack = new Stack<Point>();
+            stack.Push(new Point(seedX, seedY));
+
+            Color targetOriginalColor = Color.White; // El color que queremos reemplazar
+
+            while (stack.Count > 0)
+            {
+                Point current = stack.Pop();
+
+                // Verificar límites
+                if (current.X < 0 || current.X >= bitmap.Width ||
+                    current.Y < 0 || current.Y >= bitmap.Height)
+                    continue;
+
+                // Si ya fue visitado, continuar
+                if (visitados.Contains(current))
+                    continue;
+
+                // Obtener color actual
+                Color currentColor = bitmap.GetPixel(current.X, current.Y);
+
+                // Solo procesar píxeles blancos (interior del rombo)
+                if (currentColor.ToArgb() != targetOriginalColor.ToArgb())
+                    continue;
+
+                // Verificar que esté dentro del rombo usando la clase Rombo
+                if (romboActual != null && !romboActual.ContieneElPunto(current.X, current.Y))
+                    continue;
+
+                visitados.Add(current);
+                pixelsToFill.Enqueue(current);
+
+                // Agregar píxeles vecinos (4-conectividad)
+                stack.Push(new Point(current.X + 1, current.Y));
+                stack.Push(new Point(current.X - 1, current.Y));
+                stack.Push(new Point(current.X, current.Y + 1));
+                stack.Push(new Point(current.X, current.Y - 1));
+            }
+
+            // Actualizar información si se encontraron píxeles
+            if (pixelsToFill.Count > 0)
+            {
+                lblPixels.Text = $"Píxeles: {pixelsToFill.Count}";
+                pixelListBox.Items.Clear();
+                pixelListBox.Items.Add($"=== Animación de Relleno ===");
+                pixelListBox.Items.Add($"Total de píxeles a rellenar: {pixelsToFill.Count}");
+            }
+        }
+
+
+        private void IniciarAnimacionRelleno()
+        {
+            if (pixelsToFill == null || pixelsToFill.Count == 0)
+            {
+                MessageBox.Show("No hay píxeles para rellenar.", "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             
-            // Actualizar estadísticas
-            lblAnimated.Text = $"Animados: {pixelsFilledCount}";
-            ProgressBar.Value = pixelsFilledCount;
+            // Configurar velocidad según el trackbar
+            animationSpeed = Math.Max(1, 101 - (speedTrackBar.Value * 10));
+            animationTimer.Interval = animationSpeed;
             
-            // Refrescar canvas
+            // Deshabilitar controles durante la animación
+            isAnimating = true;
+            btnStart.Enabled = false;
+            btnPause.Enabled = true;
+            algorithmComboBox.Enabled = false;
+            
+            // Inicializar barra de progreso
+            ProgressBar.Minimum = 0;
+            ProgressBar.Maximum = pixelsToFill.Count;
+            ProgressBar.Value = 0;
+            
+            // Iniciar timer
+            animationTimer.Start();
+        }
+
+        private void DetenerAnimacion()
+        {
+            animationTimer.Stop();
+            isAnimating = false;
+            
+            // Reactivar controles
+            btnStart.Enabled = true;
+            btnPause.Enabled = false;
+            algorithmComboBox.Enabled = true;
+            btnStart.Text = "Animar";
+            
+            // Refrescar canvas final
             picCanvas.Refresh();
             
-            // Hacer scroll automático en la lista
-            pixelListBox.TopIndex = Math.Max(0, pixelListBox.Items.Count - pixelListBox.Height / pixelListBox.ItemHeight);
+            // Actualizar estadísticas finales
+            ActualizarEstadisticas("relleno");
+            ProgressBar.Value = ProgressBar.Maximum;
+            
+            // Limpiar variables de animación
+            pixelsToFill = null;
+            
+            MessageBox.Show($"Relleno completado. Se rellenaron {pixelsFilledCount} píxeles.", 
+                            "Animación Finalizada", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-    }
-    
-    // Si no quedan más píxeles, detener animación
-    if (pixelsToFill.Count == 0)
-    {
-        DetenerAnimacion();
-    }
-}
 
-private void DetenerAnimacion()
-{
-    animationTimer.Stop();
-    isAnimating = false;
-    
-    // Reactivar controles
-    btnStart.Enabled = true;
-    btnPause.Enabled = false;
-    algorithmComboBox.Enabled = true;
-    
-    // Refrescar canvas final
-    picCanvas.Refresh();
-    
-    // Actualizar estadísticas finales
-    ActualizarEstadisticas("relleno");
-    ProgressBar.Value = ProgressBar.Maximum;
-    
-    MessageBox.Show($"Relleno completado. Se rellenaron {pixelsFilledCount} píxeles.", 
-                    "Animación Finalizada", MessageBoxButtons.OK, MessageBoxIcon.Information);
-}
-
-// ...existing code...
         // Eventos vacíos que no necesitan implementación específica
         private void leftPanel_Paint(object sender, PaintEventArgs e) { }
         private void speedValueLabel_Click(object sender, EventArgs e) { }
