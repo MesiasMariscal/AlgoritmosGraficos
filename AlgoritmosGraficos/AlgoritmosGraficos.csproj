@@ -46,8 +46,19 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AlgorithmProcessor.cs" />
+    <Compile Include="AnimationManager.cs" />
+    <Compile Include="BezierCurve.cs" />
+    <Compile Include="BezierManager.cs" />
     <Compile Include="BresenhamCircle.cs" />
     <Compile Include="BresenhamLine.cs" />
+    <Compile Include="BSpline.cs" />
+    <Compile Include="BSplineManager.cs" />
+    <Compile Include="CanvasManager.cs" />
+    <Compile Include="ClickHandler.cs" />
+    <Compile Include="ClippingWindow.cs" />
+    <Compile Include="Cohen-Sutherland.cs" />
+    <Compile Include="CohenSutherlandManager.cs" />
     <Compile Include="DDALine.cs" />
     <Compile Include="floodFill.cs" />
     <Compile Include="Menu.cs">
@@ -59,6 +70,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rombo.cs" />
+    <Compile Include="ScanlineFloodFill.cs" />
+    <Compile Include="SutherlandHodgman.cs" />
+    <Compile Include="SutherlandHodgmanManager.cs" />
+    <Compile Include="UITabManager.cs" />
     <EmbeddedResource Include="Menu.resx">
       <DependentUpon>Menu.cs</DependentUpon>
     </EmbeddedResource>
